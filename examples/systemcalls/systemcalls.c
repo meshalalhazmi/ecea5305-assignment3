@@ -134,13 +134,14 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     pid_t pid ;
     int status ;
     int fd = open(outputfile, O_WRONLY| O_CREAT | O_TRUNC, 0644);
-    dup2 (fd, STDOUT_FILENO);
-    close (fd);
+  
     pid = fork();
     if (pid == -1){
         // error fork
         return false;
     }else if (pid == 0){
+          dup2 (fd, STDOUT_FILENO);
+    close (fd);
         // child process
         execv(command[0],command);
         exit(EXIT_FAILURE); // if execv fails
