@@ -94,23 +94,24 @@ echo "Adding library dependencies to rootfs"
 mkdir -p ${OUTDIR}/rootfs/lib
 mkdir -p ${OUTDIR}/rootfs/lib64
     echo "Adding ld-linux-aarch64.so.1"
+SYSROOT=$(${CROSS_COMPILE}gcc --print-sysroot)
 
-    cp /home/meshal/Desktop/courses/downloads/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib/
+    cp ${SYSROOT}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib/
     echo "Adding libm.so.6"
-    cp /home/meshal/Desktop/courses/downloads/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libm.so.6 ${OUTDIR}/rootfs/lib/
+    cp ${SYSROOT}/lib64/libm.so.6 ${OUTDIR}/rootfs/lib/
     echo "Adding libresolv.so.2"
-    cp /home/meshal/Desktop/courses/downloads/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib/
+    cp ${SYSROOT}/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib/
     echo "Adding libc.so.6"
-    cp /home/meshal/Desktop/courses/downloads/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libc.so.6 ${OUTDIR}/rootfs/lib/
+    cp ${SYSROOT}/lib64/libc.so.6 ${OUTDIR}/rootfs/lib/
 
 
-    cp /home/meshal/Desktop/courses/downloads/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib64/
+    cp ${SYSROOT}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib64/
     echo "Adding libm.so.6"
-    cp /home/meshal/Desktop/courses/downloads/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64/
+    cp ${SYSROOT}/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64/
     echo "Adding libresolv.so.2"
-    cp /home/meshal/Desktop/courses/downloads/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64/
+    cp ${SYSROOT}/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64/
     echo "Adding libc.so.6"
-    cp /home/meshal/Desktop/courses/downloads/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64/
+    cp ${SYSROOT}/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64/
 # TODO: Make device nodes
 mkdir -p "${OUTDIR}/rootfs/dev"
 sudo mknod  -m 666 ${OUTDIR}/rootfs/dev/null c 1 3
