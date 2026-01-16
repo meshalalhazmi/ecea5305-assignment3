@@ -40,8 +40,8 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
     echo "make101: Configuring the Linux kernel"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
-    echo "make102: Building the Linux kernel image"
-    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
+    echo "make102: Building the Linux kernel image , using Image target instead of all to reduce build time"
+    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} Image
     # skip building modules
     # echo "make103: Building the Linux kernel modules "
     # make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
