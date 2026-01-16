@@ -42,8 +42,9 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
     echo "make102: Building the Linux kernel image"
     make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
-    echo "make103: Building the Linux kernel modules "
-    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
+    # skip building modules
+    # echo "make103: Building the Linux kernel modules "
+    # make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
     echo "make104: Building the device tree blobs"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
 
@@ -61,13 +62,14 @@ fi
 
 # TODO: Create necessary base directories
 mkdir -p ${OUTDIR}/rootfs/bin ${OUTDIR}/rootfs/dev ${OUTDIR}/rootfs/etc ${OUTDIR}/rootfs/home ${OUTDIR}/rootfs/lib ${OUTDIR}/rootfs/lib64 ${OUTDIR}/rootfs/proc ${OUTDIR}/rootfs/sbin ${OUTDIR}/rootfs/sys ${OUTDIR}/rootfs/tmp ${OUTDIR}/rootfs/usr ${OUTDIR}/rootfs/var 
+ 
 mkdir -p ${OUTDIR}/rootfs/usr/bin ${OUTDIR}/rootfs/usr/lib ${OUTDIR}/rootfs/usr/sbin ${OUTDIR}/rootfs/var/log
 cd "$OUTDIR"
 echo "Cloning busybox"
  
 if [ ! -d "${OUTDIR}/busybox" ]
 then
-git clone git://busybox.net/busybox.git
+git clone https://github.com/mirror/busybox.git
     cd busybox
     git checkout ${BUSYBOX_VERSION}
     # TODO:  Configure busybox
@@ -95,7 +97,9 @@ mkdir -p ${OUTDIR}/rootfs/lib
 mkdir -p ${OUTDIR}/rootfs/lib64
     echo "Adding ld-linux-aarch64.so.1"
 SYSROOT=$(${CROSS_COMPILE}gcc --print-sysroot)
-
+echo "SYSROOT:${SYSROOT}"
+ls ${SYSROOT}
+echo "Copying libraries from SYSROOT to rootfs"
     cp ${SYSROOT}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib/
     echo "Adding libm.so.6"
     cp ${SYSROOT}/lib64/libm.so.6 ${OUTDIR}/rootfs/lib/
@@ -125,16 +129,21 @@ make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} clean
 make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
 # TODO: Copy the finder related scripts and executables to the /home directory
 cd "$OUTDIR"
-
+# Copy your finder.sh, conf/username.txt, conf/assignment.txt and finder-test.sh scripts from Assignment 2 into the outdir/rootfs/home directory.
 mkdir -p ${OUTDIR}/rootfs/home
 
-cp -r ${FINDER_APP_DIR}/ ${OUTDIR}/rootfs/home/ 
-rm -rf ${OUTDIR}/rootfs/home/finder-app/conf
-mkdir -p ${OUTDIR}/rootfs/home/finder-app/conf
-mkdir -p ${OUTDIR}/rootfs/home/conf
+cp -r ${FINDER_APP_DIR}/finder-test.sh ${OUTDIR}/rootfs/home/finder-test.sh
+cp -r ${FINDER_APP_DIR}/finder.sh ${OUTDIR}/rootfs/home/finder.sh
 
-cp -R ${FINDER_APP_DIR}/conf/* ${OUTDIR}/rootfs/home/finder-app/conf/
- cp -R ${FINDER_APP_DIR}/conf/* ${OUTDIR}/rootfs/home/conf/
+cp ${FINDER_APP_DIR}/writer ${OUTDIR}/rootfs/home/writer
+
+mkdir -p ${OUTDIR}/rootfs/home/conf
+cp -R ${FINDER_APP_DIR}/conf/assignment.txt ${OUTDIR}/rootfs/home/conf/assignment.txt
+cp -R ${FINDER_APP_DIR}/conf/username.txt ${OUTDIR}/rootfs/home/conf/username.txt
+
+
+#Copy the autorun-qemu.sh script into the outdir/rootfs/home directory
+cp ${FINDER_APP_DIR}/autorun-qemu.sh ${OUTDIR}/rootfs/home/autorun-qemu.sh
 
 
 # on the target rootfs
