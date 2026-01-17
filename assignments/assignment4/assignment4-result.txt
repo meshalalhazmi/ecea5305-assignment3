@@ -1,0 +1,2 @@
+filesdir: /tmp/aeld-data searchstr: AELD_IS_FUN
+The number of files are 10 and the number of matching lines are 10
