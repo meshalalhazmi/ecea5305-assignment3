@@ -2,7 +2,7 @@
 CC := $(CROSS_COMPILE)gcc
 
 # Compiler flags
-CFLAGS := -g -Wall
+CFLAGS := -g -Wall -Werror
 
 # Target executable
 TARGET := writer

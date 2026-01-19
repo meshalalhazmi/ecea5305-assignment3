@@ -14,15 +14,15 @@ static volatile int exit_requested = 0;
 
 static void signal_handler(int signo)
 {
-    if (signo == SIGINT || signo == SIGTERM){
-        printf("Signal %d received, setting exit_requested flag\n", signo);
+    if (signo == SIGINT || signo == SIGTERM)
+    {
+        printf("Signal %d received , setting exit_requested flag\n", signo);
         syslog(LOG_INFO, "Caught signal, exiting");
-         exit_requested = 1;
+        exit_requested = 1;
     }
-       
 }
-//Modify your program to support a -d argument which runs the aesdsocket application as a daemon. When in daemon mode the program should fork after ensuring it can bind to port 9000.
-int main( int argc, char *argv[])
+// Modify your program to support a -d argument which runs the aesdsocket application as a daemon. When in daemon mode the program should fork after ensuring it can bind to port 9000.
+int main(int argc, char *argv[])
 {
     int daemon_mode = 0;
     // Check for -d argument
@@ -30,25 +30,22 @@ int main( int argc, char *argv[])
     {
         daemon_mode = 1;
     }
-     struct sigaction sa;
+    struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = signal_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
- //Opens a stream socket bound to port 9000, failing and returning -1 if any of the socket connection steps fail.
+    // Opens a stream socket bound to port 9000, failing and returning -1 if any of the socket connection steps fail.
     int sockfd;
     struct addrinfo hints, *servinfo;
     char ipstr[INET6_ADDRSTRLEN];
     socklen_t sin_size;
 
-
-   
-
     if (sigaction(SIGINT, &sa, NULL) != 0)
     {
         perror("sigaction SIGINT");
-         return -1;
+        return -1;
     }
     if (sigaction(SIGTERM, &sa, NULL) != 0)
     {
@@ -94,7 +91,7 @@ int main( int argc, char *argv[])
     // If daemon mode, fork the process
     if (daemon_mode)
     {
-        printf("Running in daemon mode, forking process...\n");
+        printf("Running in daemon mode, forking process . ..\n");
         pid_t pid = fork();
         if (pid < 0)
         {
@@ -133,7 +130,7 @@ int main( int argc, char *argv[])
 
         if (new_fd < 0)
         {
-            
+
             perror("accept");
             printf("Accept failed, checking for exit request...\n");
             break;
@@ -145,7 +142,7 @@ int main( int argc, char *argv[])
         syslog(LOG_INFO, "Accepted connection from %s", ipstr);
         // Logs message to the syslog “Accepted connection from xxx” where XXXX is the IP address of the connected client.
         // Receives data over the connection and appends to file /var/tmp/aesdsocket
-         
+
         size_t initial_size = 1024;
         size_t used_size = 0;
         size_t total_size = initial_size;
@@ -194,7 +191,7 @@ int main( int argc, char *argv[])
 
             if (bytes_received < 0)
             {
-                
+
                 perror("recv");
 
                 break;
@@ -212,7 +209,7 @@ int main( int argc, char *argv[])
                 continue;
             }
         }
-         if (packet_complete)
+        if (packet_complete)
         {
 
             // print received data for debug
@@ -225,51 +222,50 @@ int main( int argc, char *argv[])
             {
                 printf("Failed to open /var/tmp/aesdsocketdata for appending\n");
                 perror("fopen");
-             
-                 
-            }else{
+            }
+            else
+            {
                 printf("Appending data to /var/tmp/aesdsocketdata\n");
-            fwrite(buffer, 1, pkt_len, file);
-            fclose(file);}
-                printf("Data appended to /var/tmp/aesdsocketdata\n");
+                fwrite(buffer, 1, pkt_len, file);
+                fclose(file);
+            }
+            printf("Data appended to /var/tmp/aesdsocketdata\n");
             // Sends the complete contents of /var/tmp/aesdsocketdata back over the connection
             FILE *read_file = fopen("/var/tmp/aesdsocketdata", "r");
             if (read_file == NULL)
             {
                 perror("fopen");
-                 
-              
-            }else{
-                printf("Sending data back to client...\n");
-            char file_buffer[1024];
-            size_t bytes_read;
-            while ((bytes_read = fread(file_buffer, 1, sizeof(file_buffer), read_file)) > 0)
-            {
-                printf("Sending %zu bytes\n", bytes_read);
-                size_t bytes_sent = 0;
-                while (bytes_sent < bytes_read)
-                {
-                    ssize_t n = send(new_fd, file_buffer + bytes_sent, bytes_read - bytes_sent, 0);
-printf("Sent %zd bytes\n", n);
-                    if (n < 0)
-                    
-                    {
-                    
-                        perror("send");
-                        break;
-                    }
-                    // handle case where n == 0
-                    if (n == 0)
-                    {
-                        break;
-                    }
-                    bytes_sent += (size_t)n;
-                    
-                }
-               
             }
-            printf("Data sent back to client\n");
-            fclose(read_file);
+            else
+            {
+                printf("Sending data back to client...\n");
+                char file_buffer[1024];
+                size_t bytes_read;
+                while ((bytes_read = fread(file_buffer, 1, sizeof(file_buffer), read_file)) > 0)
+                {
+                    printf("Sending %zu bytes\n", bytes_read);
+                    size_t bytes_sent = 0;
+                    while (bytes_sent < bytes_read)
+                    {
+                        ssize_t n = send(new_fd, file_buffer + bytes_sent, bytes_read - bytes_sent, 0);
+                        printf("Sent %zd bytes\n", n);
+                        if (n < 0)
+
+                        {
+
+                            perror("send");
+                            break;
+                        }
+                        // handle case where n == 0
+                        if (n == 0)
+                        {
+                            break;
+                        }
+                        bytes_sent += (size_t)n;
+                    }
+                }
+                printf("Data sent back to client\n");
+                fclose(read_file);
             }
             printf("Finished handling client %s\n", ipstr);
             free(buffer);
@@ -277,7 +273,7 @@ printf("Sent %zd bytes\n", n);
         }
         // Closes the connection
         // Logs message to the syslog “Closed connection from XXX” where XXX is the IP address of the connected client.
-         printf("Closing connection from %s\n", ipstr);
+        printf("Closing connection from %s\n", ipstr);
         if (buffer)
         {
             free(buffer);

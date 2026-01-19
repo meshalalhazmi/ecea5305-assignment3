@@ -2,7 +2,7 @@
 CC := $(CROSS_COMPILE)gcc
 
 # Compiler flags
-CFLAGS := -g -Wall
+CFLAGS := -g -Wall -Werror -O0
 
 # Target executable
 TARGET := aesdsocket
