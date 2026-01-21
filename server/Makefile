@@ -3,7 +3,7 @@ CC ?= $(CROSS_COMPILE)gcc
 
 # Compiler flags
 CFLAGS ?= -g -Wall -Werror -O0 -I .
-
+LDFLAGS ?=
 # Target executable
 TARGET ?= aesdsocket
 
@@ -12,7 +12,7 @@ all: $(TARGET)
 
 # Link step
 $(TARGET): aesdsocket.o
-	$(CC) $(CFLAGS) aesdsocket.o -o $(TARGET)
+	$(CC) $(CFLAGS) $(LDFLAGS) aesdsocket.o -o $(TARGET)
 
 # Compile step
 aesdsocket.o: aesdsocket.c

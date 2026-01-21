@@ -9,3 +9,6 @@ test.sh.log
 aesdsocket
 server/aesdsocket
 server/valgrind-out.txt
+server/oe-logs
+server/oe-workdir
+server/aesdsocket
