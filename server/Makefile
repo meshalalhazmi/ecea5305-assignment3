@@ -1,11 +1,11 @@
 # Compiler (can be overridden from command line)
-CC := $(CROSS_COMPILE)gcc
+CC ?= $(CROSS_COMPILE)gcc
 
 # Compiler flags
-CFLAGS := -g -Wall -Werror -O0 -I .
+CFLAGS ?= -g -Wall -Werror -O0 -I .
 
 # Target executable
-TARGET := aesdsocket
+TARGET ?= aesdsocket
 
 # Default target
 all: $(TARGET)
