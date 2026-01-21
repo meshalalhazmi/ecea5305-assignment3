@@ -2,7 +2,7 @@
 CC := $(CROSS_COMPILE)gcc
 
 # Compiler flags
-CFLAGS := -g -Wall -Werror -O0
+CFLAGS := -g -Wall -Werror -O0 -I .
 
 # Target executable
 TARGET := aesdsocket
@@ -16,7 +16,7 @@ $(TARGET): aesdsocket.o
 
 # Compile step
 aesdsocket.o: aesdsocket.c
-	$(CC) $(CFLAGS) -c aesdsocket.c -o aesdsocket.o
+	$(CC) $(CFLAGS) -c aesdsocket.c -o aesdsocket.o 
 # Clean target
 clean:
 	rm -f *.o $(TARGET) *.elf *.map
