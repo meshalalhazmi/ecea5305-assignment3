@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <pthread.h>
-#include <queue.h>
+#include "queue.h"
 // #define MAX_THREADS 10
 
 pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
