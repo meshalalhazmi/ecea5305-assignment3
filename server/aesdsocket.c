@@ -13,10 +13,21 @@
 #include <pthread.h>
 #include "queue.h"
 // #define MAX_THREADS 10
+#ifndef USE_AESD_CHAR_DEVICE 
+ #define USE_AESD_CHAR_DEVICE 1
+#endif
+#if USE_AESD_CHAR_DEVICE
+#define AESD_PATH "/dev/aesdchar"
+#else
+#define AESD_PATH "/var/tmp/aesdsocketdata"
+#endif
 
+#if !USE_AESD_CHAR_DEVICE
 pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
+#if !USE_AESD_CHAR_DEVICE
 pthread_t time_thread_id;
-
+#endif
 // pthread_t threads_id[MAX_THREADS];
 // slist_data *threads_id = NULL;;
 struct thread_data
@@ -47,7 +58,7 @@ static void signal_handler(int signo)
         exit_requested = 1;
     }
 }
-
+#if !USE_AESD_CHAR_DEVICE
 void *time_thread_func(void *arg)
 {
     while (!exit_requested)
@@ -63,7 +74,7 @@ void *time_thread_func(void *arg)
         strftime(time_buffer, sizeof(time_buffer), "timestamp:%a, %d %b %Y %H:%M:%S %z\n", tm_info);
         printf("Appending timestamp: %s", time_buffer);
         pthread_mutex_lock(&file_mutex);
-        FILE *file = fopen("/var/tmp/aesdsocketdata", "a");
+        FILE *file = fopen(AESD_PATH, "a");
         if (file == NULL)
         {
             perror("fopen");
@@ -78,6 +89,7 @@ void *time_thread_func(void *arg)
     }
     return NULL;
 }
+#endif
 // Modify your program to support a -d argument which runs the aesdsocket application as a daemon. When in daemon mode the program should fork after ensuring it can bind to port 9000.
 void *handle_connection(void *arg)
 {
@@ -173,23 +185,24 @@ void *handle_connection(void *arg)
 
         // Writes to /var/tmp/aesdsocketdata should be synchronized between threads using a mutex, to ensure data written by synchronous connections is not intermixed, and not relying on any file system synchronization
         // mutex for file access
+        #if !USE_AESD_CHAR_DEVICE
         pthread_mutex_lock(&file_mutex);
-        FILE *file = fopen("/var/tmp/aesdsocketdata", "a");
+        #endif
+        FILE *file = fopen(AESD_PATH, "a");
         if (file == NULL)
         {
-            printf("Failed to open /var/tmp/aesdsocketdata for appending\n");
-            perror("fopen");
+             perror("fopen");
         }
         else
         {
-            printf("Appending data to /var/tmp/aesdsocketdata\n");
-            fwrite(buffer, 1, pkt_len, file);
+             fwrite(buffer, 1, pkt_len, file);
             fclose(file);
         }
-        printf("Data appended to /var/tmp/aesdsocketdata\n");
-        pthread_mutex_unlock(&file_mutex);
+        #if !USE_AESD_CHAR_DEVICE
+         pthread_mutex_unlock(&file_mutex);
+         #endif
         // Sends the complete contents of /var/tmp/aesdsocketdata back over the connection
-        FILE *read_file = fopen("/var/tmp/aesdsocketdata", "r");
+        FILE *read_file = fopen(AESD_PATH, "r");
         if (read_file == NULL)
         {
             perror("fopen");
@@ -332,12 +345,13 @@ int main(int argc, char *argv[])
     printf("Freeing address info...\n");
     freeaddrinfo(servinfo);
     printf("Listening for incoming connections...\n");
-
+    #if !USE_AESD_CHAR_DEVICE
     if ( pthread_create(&time_thread_id, NULL, time_thread_func, NULL) != 0)
     {
         perror("pthread_create for time thread");
         return -1;
     }
+    #endif
     // Listening for incoming connections with a backlog of 5
     // 6.1 Modify your socket based program to accept multiple simultaneous connections, with each connection spawning a new thread to handle the connection
 
@@ -437,12 +451,12 @@ int main(int argc, char *argv[])
     close(sockfd);
 
     // Delete the /var/tmp/aesdsocketdata file
-    printf("Deleting /var/tmp/aesdsocketdata...\n");
+   #if !USE_AESD_CHAR_DEVICE
     if (remove("/var/tmp/aesdsocketdata") != 0)
     {
         perror("remove");
         printf("Failed to delete /var/tmp/aesdsocketdata\n");
     }
-
+#endif
     return 0;
 }
