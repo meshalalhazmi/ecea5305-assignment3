@@ -3,7 +3,7 @@ CC ?= $(CROSS_COMPILE)gcc
 
 # Compiler flags
 CFLAGS ?= -g -Wall -Werror -O0 -I . -I ../aesd-char-driver
-CFLAGS += -I . -I ../aesd-char-driver
+override CFLAGS += -I ../aesd-char-driver
 
 LDFLAGS ?=
 # Target executable
