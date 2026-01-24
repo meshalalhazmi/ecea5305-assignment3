@@ -20,6 +20,8 @@
 #include "aesdchar.h"
 #include "aesd-circular-buffer.h"
 #include <linux/uaccess.h>
+#include "aesd_ioctl.h"
+
 int aesd_major = 0; // use dynamic major
 int aesd_minor = 0;
 
@@ -27,6 +29,85 @@ MODULE_AUTHOR("MESHAL ALHAZMI");
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct aesd_dev aesd_device;
+
+static long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    struct aesd_dev *dev = filp->private_data;
+    struct aesd_seekto seekto;
+    struct aesd_buffer_entry *entry;
+    uint32_t cmd_idx;
+    uint32_t cmd_off;
+    size_t offset = 0;
+    uint8_t index, count, buf_index;
+
+    if (cmd != AESDCHAR_IOCSEEKTO)
+        return -ENOTTY;
+
+    if (copy_from_user(&seekto, (const void __user *)arg, sizeof(seekto)))
+        return -EFAULT;
+
+    cmd_idx = seekto.write_cmd;
+    cmd_off = seekto.write_cmd_offset;
+
+    if (mutex_lock_interruptible(&dev->lock))
+        return -ERESTARTSYS;
+
+    count = dev->buffer.full ? AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED
+                             : dev->buffer.in_offs;
+    if (cmd_idx >= count) {
+        mutex_unlock(&dev->lock);
+        return -EINVAL;
+    }
+
+    buf_index = dev->buffer.out_offs;
+    for (uint32_t i = 0; i < cmd_idx; i++) {
+        entry = &dev->buffer.entry[buf_index];
+        offset += entry->size;
+        buf_index = (buf_index + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    }
+
+    entry = &dev->buffer.entry[buf_index];
+    if (cmd_off >= entry->size) {
+        mutex_unlock(&dev->lock);
+        return -EINVAL;
+    }
+
+    filp->f_pos = offset + cmd_off;
+
+    mutex_unlock(&dev->lock);
+    return 0;
+}
+
+
+
+static size_t aesd_total_size(struct aesd_circular_buffer *buffer)
+{
+    size_t total = 0;
+    uint8_t index;
+    struct aesd_buffer_entry *entry;
+
+    AESD_CIRCULAR_BUFFER_FOREACH(entry, buffer, index) {
+        if (entry->buffptr)
+            total += entry->size;
+    }
+    return total;
+}
+static loff_t aesd_llseek(struct file *filp, loff_t offset, int whence)
+{
+    struct aesd_dev *dev = filp->private_data;
+    loff_t retval;
+    size_t size;
+
+    if (mutex_lock_interruptible(&dev->lock))
+        return -ERESTARTSYS;
+
+    size = aesd_total_size(&dev->buffer);
+    retval = fixed_size_llseek(filp, offset, whence, size);
+
+    mutex_unlock(&dev->lock);
+    return retval;
+}
+
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
@@ -166,6 +247,9 @@ struct file_operations aesd_fops = {
     .read = aesd_read,
     .write = aesd_write,
     .open = aesd_open,
+    .llseek = aesd_llseek,
+    .unlocked_ioctl = aesd_ioctl,
+
     .release = aesd_release,
 };
 
