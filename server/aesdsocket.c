@@ -12,9 +12,13 @@
 #include <signal.h>
 #include <pthread.h>
 #include "queue.h"
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include "aesd_ioctl.h"
+
 // #define MAX_THREADS 10
-#ifndef USE_AESD_CHAR_DEVICE 
- #define USE_AESD_CHAR_DEVICE 1
+#ifndef USE_AESD_CHAR_DEVICE
+#define USE_AESD_CHAR_DEVICE 1
 #endif
 #if USE_AESD_CHAR_DEVICE
 #define AESD_PATH "/dev/aesdchar"
@@ -41,9 +45,10 @@ struct thread_data
 
 struct node
 {
-  pthread_t tid;
-  struct thread_data thread_data;
-     SLIST_ENTRY(node) entries;
+    pthread_t tid;
+    struct thread_data thread_data;
+    SLIST_ENTRY(node)
+    entries;
 };
 SLIST_HEAD(node_head, node);
 
@@ -93,15 +98,14 @@ void *time_thread_func(void *arg)
 // Modify your program to support a -d argument which runs the aesdsocket application as a daemon. When in daemon mode the program should fork after ensuring it can bind to port 9000.
 void *handle_connection(void *arg)
 {
-    
+
     char ipstr[INET6_ADDRSTRLEN];
 
     // int new_fd = ((struct thread_data *)arg)->client_fd;
     int new_fd = ((struct node *)arg)->thread_data.client_fd;
     // struct sockaddr client_addr = ((struct thread_data *)arg)->client_addr;
     struct sockaddr client_addr = ((struct node *)arg)->thread_data.client_addr;
- 
-     
+
     char *buffer = NULL;
     size_t initial_size = 1024;
     size_t used_size = 0;
@@ -185,23 +189,80 @@ void *handle_connection(void *arg)
 
         // Writes to /var/tmp/aesdsocketdata should be synchronized between threads using a mutex, to ensure data written by synchronous connections is not intermixed, and not relying on any file system synchronization
         // mutex for file access
-        #if !USE_AESD_CHAR_DEVICE
+
+#if USE_AESD_CHAR_DEVICE
+        int devfd = open(AESD_PATH, O_RDWR);
+        if (devfd < 0)
+        {
+            perror("open");
+            printf("freeing buffer to prevent leak");
+            if (buffer)
+            {
+                free(buffer);
+            }
+            printf("closing new_fd on error  ");
+            close(new_fd);
+            return NULL; // or break out / handle as you prefer
+        }
+
+        char *cmd = malloc(pkt_len + 1);
+        memcpy(cmd, buffer, pkt_len);
+        cmd[pkt_len] = '\0';
+        if (pkt_len > 0 && cmd[pkt_len - 1] == '\n')
+        {
+            cmd[pkt_len - 1] = '\0';
+        }
+
+        const char *prefix = "AESDCHAR_IOCSEEKTO:";
+        unsigned int x, y;
+        int is_ioctl = 0;
+
+        if (strncmp(cmd, prefix, strlen(prefix)) == 0 &&
+            sscanf(cmd + strlen(prefix), "%u,%u", &x, &y) == 2)
+        {
+            is_ioctl = 1;
+            struct aesd_seekto seekto = {.write_cmd = x, .write_cmd_offset = y};
+            if (ioctl(devfd, AESDCHAR_IOCSEEKTO, &seekto) != 0)
+            {
+                perror("ioctl");
+            }
+        }
+free(cmd);
+       
+        if (!is_ioctl) {
+    if (write(devfd, buffer, pkt_len) < 0) {
+        perror("write");
+    }
+}
+        char file_buffer[1024];
+        ssize_t bytes_read;
+        while ((bytes_read = read(devfd, file_buffer, sizeof(file_buffer))) > 0)
+        {
+            size_t bytes_sent = 0;
+            while (bytes_sent < (size_t)bytes_read)
+            {
+                ssize_t n = send(new_fd, file_buffer + bytes_sent,
+                                 (size_t)bytes_read - bytes_sent, 0);
+                if (n <= 0)
+                    break;
+                bytes_sent += (size_t)n;
+            }
+        }
+        close(devfd);
+#else
         pthread_mutex_lock(&file_mutex);
-        #endif
         FILE *file = fopen(AESD_PATH, "a");
         if (file == NULL)
         {
-             perror("fopen");
+            perror("fopen");
         }
         else
         {
-             fwrite(buffer, 1, pkt_len, file);
+            fwrite(buffer, 1, pkt_len, file);
             fclose(file);
         }
-        #if !USE_AESD_CHAR_DEVICE
-         pthread_mutex_unlock(&file_mutex);
-         #endif
-        // Sends the complete contents of /var/tmp/aesdsocketdata back over the connection
+        pthread_mutex_unlock(&file_mutex);
+
         FILE *read_file = fopen(AESD_PATH, "r");
         if (read_file == NULL)
         {
@@ -209,38 +270,22 @@ void *handle_connection(void *arg)
         }
         else
         {
-            printf("Sending data back to client...\n");
             char file_buffer[1024];
             size_t bytes_read;
             while ((bytes_read = fread(file_buffer, 1, sizeof(file_buffer), read_file)) > 0)
             {
-                printf("Sending %zu bytes\n", bytes_read);
                 size_t bytes_sent = 0;
                 while (bytes_sent < bytes_read)
                 {
                     ssize_t n = send(new_fd, file_buffer + bytes_sent, bytes_read - bytes_sent, 0);
-                    printf("Sent %zd bytes\n", n);
-                    if (n < 0)
-
-                    {
-
-                        perror("send");
+                    if (n <= 0)
                         break;
-                    }
-                    // handle case where n == 0
-                    if (n == 0)
-                    {
-                        break;
-                    }
                     bytes_sent += (size_t)n;
                 }
             }
-            printf("Data sent back to client\n");
             fclose(read_file);
         }
-        printf("Finished handling client %s\n", ipstr);
-        free(buffer);
-        buffer = NULL;
+#endif
     }
     // Closes the connection
     // Logs message to the syslog “Closed connection from XXX” where XXX is the IP address of the connected client.
@@ -345,13 +390,13 @@ int main(int argc, char *argv[])
     printf("Freeing address info...\n");
     freeaddrinfo(servinfo);
     printf("Listening for incoming connections...\n");
-    #if !USE_AESD_CHAR_DEVICE
-    if ( pthread_create(&time_thread_id, NULL, time_thread_func, NULL) != 0)
+#if !USE_AESD_CHAR_DEVICE
+    if (pthread_create(&time_thread_id, NULL, time_thread_func, NULL) != 0)
     {
         perror("pthread_create for time thread");
         return -1;
     }
-    #endif
+#endif
     // Listening for incoming connections with a backlog of 5
     // 6.1 Modify your socket based program to accept multiple simultaneous connections, with each connection spawning a new thread to handle the connection
 
@@ -362,27 +407,25 @@ int main(int argc, char *argv[])
         return -1;
     }
     printf("Accepting a connection...\n");
-     /* code */
-        // This macro creates the data type for the head of the queue
-        // for nodes of type 'struct node'
- 
-        struct node_head head;
- 
-        SLIST_INIT(&head);
-        
-           
-        
-        struct node *entry = NULL;
+    /* code */
+    // This macro creates the data type for the head of the queue
+    // for nodes of type 'struct node'
+
+    struct node_head head;
+
+    SLIST_INIT(&head);
+
+    struct node *entry = NULL;
     while (!exit_requested)
     {
-       
+
         struct sockaddr client_addr;
         sin_size = sizeof(client_addr);
-            printf("accept...\n");
+        printf("accept...\n");
 
         int new_fd = accept(sockfd, &client_addr, &sin_size);
         // 6.1 Modify your socket based program to accept multiple simultaneous connections, with each connection spawning a new thread to handle the connection
-        
+
         if (new_fd < 0)
         {
 
@@ -390,20 +433,19 @@ int main(int argc, char *argv[])
             printf("Accept failed, checking for exit request...\n");
             break;
         }
-         entry = malloc(sizeof *entry);
+        entry = malloc(sizeof *entry);
         if (entry == NULL)
         {
             perror("malloc");
             close(new_fd);
             continue;
         }
-        
+
         entry->thread_data.client_fd = new_fd;
         memcpy(&entry->thread_data.client_addr, &client_addr, sizeof(client_addr));
-      
-        // 
-        SLIST_INSERT_HEAD(&head, entry, entries);     
-          
+
+        //
+        SLIST_INSERT_HEAD(&head, entry, entries);
 
         if (pthread_create(&entry->tid, NULL, handle_connection, (void *)entry) != 0)
         {
@@ -430,11 +472,11 @@ int main(int argc, char *argv[])
         printf("Exit requested, shutting down...\n");
         // join all threads before exiting from threads_id
         struct node *np, *tmp;
-         SLIST_FOREACH_SAFE(np, &head, entries, tmp)
+        SLIST_FOREACH_SAFE(np, &head, entries, tmp)
         {
             pthread_join(np->tid, NULL);
             close(np->thread_data.client_fd);
-            SLIST_REMOVE(&head,np, node, entries);
+            SLIST_REMOVE(&head, np, node, entries);
             free(np);
         }
         // for (int i = 0; i < MAX_THREADS; i++)
@@ -451,7 +493,7 @@ int main(int argc, char *argv[])
     close(sockfd);
 
     // Delete the /var/tmp/aesdsocketdata file
-   #if !USE_AESD_CHAR_DEVICE
+#if !USE_AESD_CHAR_DEVICE
     if (remove("/var/tmp/aesdsocketdata") != 0)
     {
         perror("remove");

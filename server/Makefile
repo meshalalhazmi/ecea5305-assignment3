@@ -2,7 +2,7 @@
 CC ?= $(CROSS_COMPILE)gcc
 
 # Compiler flags
-CFLAGS ?= -g -Wall -Werror -O0 -I .
+CFLAGS ?= -g -Wall -Werror -O0 -I . -I ../aesd-char-driver
 LDFLAGS ?=
 # Target executable
 TARGET ?= aesdsocket
